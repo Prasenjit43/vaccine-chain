@@ -1,0 +1,10 @@
+
+{
+    "index":{
+        "fields":["owner","docType"]
+    },
+    "ddoc":"index1Doc",
+    "name":"vaccinechain_index1",
+    "type":"json"
+}
+

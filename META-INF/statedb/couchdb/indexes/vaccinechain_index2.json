@@ -1,0 +1,10 @@
+
+{
+    "index":{
+        "fields":["owner","cartonId"]
+    },
+    "ddoc":"index2Doc",
+    "name":"vaccinechain_index2",
+    "type":"json"
+}
+

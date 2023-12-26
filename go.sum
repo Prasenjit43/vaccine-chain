@@ -44,6 +44,8 @@ github.com/Prasenjit43/vaccinechainhelper v0.0.0-20231225081548-bc4df3cd8f00 h1:
 github.com/Prasenjit43/vaccinechainhelper v0.0.0-20231225081548-bc4df3cd8f00/go.mod h1:X6316WEvQAEoDN0311HUl4Sd5gLIi2x7yaTyPuZEg3A=
 github.com/Prasenjit43/vaccinechainhelper v0.0.0-20231225135950-5ba6961bc64a h1:ZZH5Z777HoSSzXRdUsc9IfWGXHr5UE2CzGHy89T0R20=
 github.com/Prasenjit43/vaccinechainhelper v0.0.0-20231225135950-5ba6961bc64a/go.mod h1:X6316WEvQAEoDN0311HUl4Sd5gLIi2x7yaTyPuZEg3A=
+github.com/Prasenjit43/vaccinechainhelper v0.0.0-20231226051743-34f47f9edc64 h1:VRVqeoB6YyuJciCPtwd2uQG2/PBkZxiNNmr0LMA5MOc=
+github.com/Prasenjit43/vaccinechainhelper v0.0.0-20231226051743-34f47f9edc64/go.mod h1:X6316WEvQAEoDN0311HUl4Sd5gLIi2x7yaTyPuZEg3A=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=

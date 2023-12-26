@@ -20,32 +20,47 @@ type SmartContract struct {
 	contractapi.Contract
 }
 
-type VaccineChainAdmin struct {
-	Id            string `json:"id"`
-	FirstName     string `json:"firstName"`
-	MiddleName    string `json:"middleName,omitempty"`
-	LastName      string `json:"lastName,omitempty"`
-	AdminIdentity string `json:"adminIdentity"`
-	ContactNo     string `json:"contactNo"`
-	DocType       string `json:"docType"`
-	EmailId       string `json:"emailId"`
-	Suspended     bool   `json:"suspended"`
-}
+// type VaccineChainAdmin struct {
+// 	Id            string `json:"id"`
+// 	FirstName     string `json:"firstName"`
+// 	MiddleName    string `json:"middleName,omitempty"`
+// 	LastName      string `json:"lastName,omitempty"`
+// 	AdminIdentity string `json:"adminIdentity"`
+// 	ContactNo     string `json:"contactNo"`
+// 	DocType       string `json:"docType"`
+// 	EmailId       string `json:"emailId"`
+// 	Suspended     bool   `json:"suspended"`
+// }
 
 type Entity struct {
 	Id            string `json:"id"`
 	Name          string `json:"name"`
 	LicenseNo     string `json:"licenseNo"`
-	Address       string `json:"address"`       //updatable
-	OwnerName     string `json:"ownerName"`     //updatable
-	OwnerIdentity string `json:"ownerIdentity"` //updatable
-	OwnerAddress  string `json:"ownerAddress"`  //updatable
-	ContactNo     string `json:"contactNo"`     //updatable
-	EmailId       string `json:"emailId"`       //updatable
+	Address       string `json:"address,omitempty"`       //updatable
+	OwnerName     string `json:"ownerName,omitempty"`     //updatable
+	OwnerIdentity string `json:"ownerIdentity,omitempty"` //updatable
+	OwnerAddress  string `json:"ownerAddress,omitempty"`  //updatable
+	ContactNo     string `json:"contactNo,omitempty"`     //updatable
+	EmailId       string `json:"emailId,omitempty"`       //updatable
 	Suspended     bool   `json:"suspended"`
 	BatchCount    int    `json:"batchCount,omitempty"`
 	DocType       string `json:"docType"`
 }
+
+// type Entity struct {
+// 	Id            string `json:"id"`
+// 	Name          string `json:"name"`
+// 	LicenseNo     string `json:"licenseNo"`
+// 	Address       string `json:"address"`       //updatable
+// 	OwnerName     string `json:"ownerName"`     //updatable
+// 	OwnerIdentity string `json:"ownerIdentity"` //updatable
+// 	OwnerAddress  string `json:"ownerAddress"`  //updatable
+// 	ContactNo     string `json:"contactNo"`     //updatable
+// 	EmailId       string `json:"emailId"`       //updatable
+// 	Suspended     bool   `json:"suspended"`
+// 	BatchCount    int    `json:"batchCount,omitempty"`
+// 	DocType       string `json:"docType"`
+// }
 
 type Product struct {
 	Id             string `json:"id"`
@@ -98,7 +113,7 @@ type Receipt struct {
 // It takes in a JSON string containing admin details and performs several validations before inserting the admin record into the ledger.
 func (s *SmartContract) VaccineChainAdmin(ctx contractapi.TransactionContextInterface, adminInputString string) error {
 	// Define a struct to hold the admin details
-	var vaccineChainAdmin VaccineChainAdmin
+	var vaccineChainAdmin Entity
 
 	// Unmarshal the input JSON string into the VaccineChainAdmin struct
 	err := json.Unmarshal([]byte(adminInputString), &vaccineChainAdmin)
@@ -114,36 +129,39 @@ func (s *SmartContract) VaccineChainAdmin(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("permission denied: only super admin can call this function")
 	}
 
-	/* Validate Admin Id */
-
-	// Check if the admin record already exists using its ID and document type
-	objectBytes, err := vaccinechainhelper.IsExist(ctx, vaccineChainAdmin.Id, vaccineChainAdmin.DocType)
+	err = valdateAndPutData(ctx, vaccineChainAdmin, vaccineChainAdmin.Id, vaccineChainAdmin.DocType)
 	if err != nil {
 		return err
 	}
 
-	// If the record already exists, return an error
-	if objectBytes != nil {
-		return fmt.Errorf("Record already exists for %v with Id: %v", vaccineChainAdmin.DocType, vaccineChainAdmin.Id)
-	}
+	// // Check if the admin record already exists using its ID and document type
+	// objectBytes, err := vaccinechainhelper.IsExist(ctx, vaccineChainAdmin.Id, vaccineChainAdmin.DocType)
+	// if err != nil {
+	// 	return err
+	// }
 
-	// Marshal the admin record into JSON format
-	vaccineChainAdminJSON, err := json.Marshal(vaccineChainAdmin)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal Admin record: %v", err.Error())
-	}
+	// // If the record already exists, return an error
+	// if objectBytes != nil {
+	// 	return fmt.Errorf("Record already exists for %v with Id: %v", vaccineChainAdmin.DocType, vaccineChainAdmin.Id)
+	// }
 
-	// Create a composite key using the admin's ID and document type
-	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{vaccineChainAdmin.Id, vaccineChainAdmin.DocType})
-	if err != nil {
-		return fmt.Errorf("Failed to create composite key for hospital %v: %v", vaccineChainAdmin.Id, err.Error())
-	}
+	// // Marshal the admin record into JSON format
+	// vaccineChainAdminJSON, err := json.Marshal(vaccineChainAdmin)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to marshal Admin record: %v", err.Error())
+	// }
 
-	// Put the admin record into the ledger using the composite key
-	err = ctx.GetStub().PutState(compositeKey, vaccineChainAdminJSON)
-	if err != nil {
-		return fmt.Errorf("Failed to insert hospital details to CouchDB: %v", err.Error())
-	}
+	// // Create a composite key using the admin's ID and document type
+	// compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{vaccineChainAdmin.Id, vaccineChainAdmin.DocType})
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to create composite key for hospital %v: %v", vaccineChainAdmin.Id, err.Error())
+	// }
+
+	// // Put the admin record into the ledger using the composite key
+	// err = ctx.GetStub().PutState(compositeKey, vaccineChainAdminJSON)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to insert hospital details to CouchDB: %v", err.Error())
+	// }
 
 	fmt.Println("********** End of Add Vaccine Chain Admin Function ******************")
 	return nil
@@ -171,32 +189,37 @@ func (s *SmartContract) AddEntity(ctx contractapi.TransactionContextInterface, e
 		return fmt.Errorf("only Vaccine Chain Admin are allowed to register %v", entityInput.DocType)
 	}
 
-	// Check if the entity already exists
-	objectBytes, err := vaccinechainhelper.IsExist(ctx, entityInput.Id, entityInput.DocType)
+	err = valdateAndPutData(ctx, entityInput, entityInput.Id, entityInput.DocType)
 	if err != nil {
 		return err
 	}
-	if objectBytes != nil {
-		return fmt.Errorf("record already exists for %v with Id: %v", entityInput.DocType, entityInput.Id)
-	}
 
-	// Marshal the entity into JSON
-	entityJSON, err := json.Marshal(entityInput)
-	if err != nil {
-		return fmt.Errorf("failed to marshal entity records: %v", err.Error())
-	}
+	// // Check if the entity already exists
+	// objectBytes, err := vaccinechainhelper.IsExist(ctx, entityInput.Id, entityInput.DocType)
+	// if err != nil {
+	// 	return err
+	// }
+	// if objectBytes != nil {
+	// 	return fmt.Errorf("record already exists for %v with Id: %v", entityInput.DocType, entityInput.Id)
+	// }
 
-	// Create composite key for the entity
-	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{entityInput.Id, entityInput.DocType})
-	if err != nil {
-		return fmt.Errorf("failed to create composite key for %v, error: %v", entityInput.Id, err.Error())
-	}
+	// // Marshal the entity into JSON
+	// entityJSON, err := json.Marshal(entityInput)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to marshal entity records: %v", err.Error())
+	// }
 
-	// Put the entity details into CouchDB
-	err = ctx.GetStub().PutState(compositeKey, entityJSON)
-	if err != nil {
-		return fmt.Errorf("failed to insert entity details to CouchDB: %v", err.Error())
-	}
+	// // Create composite key for the entity
+	// compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{entityInput.Id, entityInput.DocType})
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create composite key for %v, error: %v", entityInput.Id, err.Error())
+	// }
+
+	// // Put the entity details into CouchDB
+	// err = ctx.GetStub().PutState(compositeKey, entityJSON)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to insert entity details to CouchDB: %v", err.Error())
+	// }
 	fmt.Println("********** End of Add Entity Function ******************")
 	return nil
 }
@@ -233,35 +256,40 @@ func (s *SmartContract) AddProduct(ctx contractapi.TransactionContextInterface, 
 	// Generate a unique ID for the product using manufacturer ID and product ID
 	productId := productInput.Id + manufacturerId
 
-	// Check if the product already exists for the manufacturer
-	objectBytes, err := vaccinechainhelper.IsExist(ctx, productId, productInput.DocType)
-	if err != nil {
-		return err
-	}
-	if objectBytes != nil {
-		return fmt.Errorf("Record already exists with ID: %v", productInput.Id)
-	}
-
 	// Assign the manufacturer as the owner of the product
 	productInput.Owner = manufacturerId
 
-	// Marshal the product record into JSON
-	productJSON, err := json.Marshal(productInput)
+	err = valdateAndPutData(ctx, productInput, productId, productInput.DocType)
 	if err != nil {
-		return fmt.Errorf("Failed to marshal product records: %v", err.Error())
+		return err
 	}
 
-	// Create a composite key using product ID and document type
-	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{productId, productInput.DocType})
-	if err != nil {
-		return fmt.Errorf("Failed to create composite key for %v: %v", productInput.Id, err.Error())
-	}
+	// // Check if the product already exists for the manufacturer
+	// objectBytes, err := vaccinechainhelper.IsExist(ctx, productId, productInput.DocType)
+	// if err != nil {
+	// 	return err
+	// }
+	// if objectBytes != nil {
+	// 	return fmt.Errorf("Record already exists with ID: %v", productInput.Id)
+	// }
 
-	// Put the product details into the ledger's state
-	err = ctx.GetStub().PutState(compositeKey, productJSON)
-	if err != nil {
-		return fmt.Errorf("Failed to insert product details into CouchDB: %v", err.Error())
-	}
+	// // Marshal the product record into JSON
+	// productJSON, err := json.Marshal(productInput)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to marshal product records: %v", err.Error())
+	// }
+
+	// // Create a composite key using product ID and document type
+	// compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{productId, productInput.DocType})
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to create composite key for %v: %v", productInput.Id, err.Error())
+	// }
+
+	// // Put the product details into the ledger's state
+	// err = ctx.GetStub().PutState(compositeKey, productJSON)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to insert product details into CouchDB: %v", err.Error())
+	// }
 
 	fmt.Println("********** End of Add Product Function ******************")
 	return nil
@@ -341,7 +369,8 @@ func (s *SmartContract) AddBatch(ctx contractapi.TransactionContextInterface, ba
 	}
 
 	// Create composite key and insert batch details to couchDB
-	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{manufacturerId, batchInput.Id})
+	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdIdIndex, []string{manufacturerId, batchInput.Id})
+	// compositeKey, err := ctx.GetStub().CreateCompositeKey([]string{manufacturerId, batchInput.Id})
 	if err != nil {
 		return fmt.Errorf("Failed to create composite key for %v: %v", batchInput.Id, err.Error())
 	}
@@ -992,6 +1021,84 @@ func constructQueryResponseFromIterator(resultsIterator shim.StateQueryIteratorI
 	fmt.Println("buffer string : ", buffer.String())
 	return buffer.String(), nil
 
+}
+
+func valdateAndPutData(ctx contractapi.TransactionContextInterface, entity interface{}, id string, docType string) error {
+	fmt.Println("entity 		: ", entity)
+	fmt.Println("id 			: ", id)
+	fmt.Println("docType 		: ", docType)
+	// Check if the admin record already exists using its ID and document type
+	objectBytes, err := vaccinechainhelper.IsExist(ctx, id, docType)
+	fmt.Println("err 		: ", err)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Object Bytes 	: ", objectBytes)
+
+	// If the record already exists, return an error
+	if objectBytes != nil {
+		return fmt.Errorf("Record already exists for %v with Id: %v", docType, id)
+	}
+
+	// Marshal the admin record into JSON format
+	entityJSON, err := json.Marshal(entity)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal Admin record: %v", err.Error())
+	}
+
+	// Create a composite key using the admin's ID and document type
+	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{id, docType})
+	if err != nil {
+		return fmt.Errorf("Failed to create composite key for %v: %v", id, err.Error())
+	}
+
+	// Put the admin record into the ledger using the composite key
+	err = ctx.GetStub().PutState(compositeKey, entityJSON)
+	if err != nil {
+		return fmt.Errorf("Failed to insert details to CouchDB: %v", err.Error())
+	}
+
+	return nil
+}
+
+func valdateAndPutData1(ctx contractapi.TransactionContextInterface, entity Entity, id string, docType string) error {
+	fmt.Println("entity 		: ", entity)
+	fmt.Println("id 			: ", id)
+	fmt.Println("docType 		: ", docType)
+	// Check if the admin record already exists using its ID and document type
+	objectBytes, err := vaccinechainhelper.IsExist(ctx, id, docType)
+	fmt.Println("err 		: ", err)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Object Bytes 	: ", objectBytes)
+
+	// If the record already exists, return an error
+	if objectBytes != nil {
+		return fmt.Errorf("Record already exists for %v with Id: %v", docType, docType)
+	}
+
+	// Marshal the admin record into JSON format
+	entityJSON, err := json.Marshal(entity)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal Admin record: %v", err.Error())
+	}
+
+	// Create a composite key using the admin's ID and document type
+	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{id, docType})
+	if err != nil {
+		return fmt.Errorf("Failed to create composite key for %v: %v", id, err.Error())
+	}
+
+	// Put the admin record into the ledger using the composite key
+	err = ctx.GetStub().PutState(compositeKey, entityJSON)
+	if err != nil {
+		return fmt.Errorf("Failed to insert details to CouchDB: %v", err.Error())
+	}
+
+	return nil
 }
 
 func main() {

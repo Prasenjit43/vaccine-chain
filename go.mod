@@ -5,7 +5,7 @@ go 1.17
 require github.com/hyperledger/fabric-contract-api-go v1.2.0
 
 require (
-	github.com/Prasenjit43/vaccinechainhelper v0.0.0-20231225135950-5ba6961bc64a // indirect
+	github.com/Prasenjit43/vaccinechainhelper v0.0.0-20231226051743-34f47f9edc64 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.20.0 // indirect
 	github.com/go-openapi/spec v0.20.6 // indirect

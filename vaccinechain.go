@@ -112,7 +112,18 @@ func (s *SmartContract) VaccineChainAdmin(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("permission denied: only super admin can call this function")
 	}
 
-	err = valdateAndPutData(ctx, vaccineChainAdmin, vaccineChainAdmin.Id, vaccineChainAdmin.DocType)
+	objectBytes, err := vaccinechainhelper.IsExist(ctx, vaccineChainAdmin.Id, vaccineChainAdmin.DocType)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Object Bytes 	: ", objectBytes)
+
+	// If the record already exists, return an error
+	if objectBytes != nil {
+		return fmt.Errorf("Record already exists for %v with Id: %v", vaccineChainAdmin.DocType, vaccineChainAdmin.Id)
+	}
+
+	err = insertData(ctx, vaccineChainAdmin, vaccineChainAdmin.Id, vaccineChainAdmin.DocType)
 	if err != nil {
 		return err
 	}
@@ -131,19 +142,36 @@ func (s *SmartContract) AddEntity(ctx contractapi.TransactionContextInterface, e
 	}
 	fmt.Println("Input String:", entityInput)
 
-	// Fetch certificate attributes for the logged-in user
-	attributes, err := vaccinechainhelper.GetAllCertificateAttributes(ctx, []string{"userRole"})
+	// // Fetch certificate attributes for the logged-in user
+	// attributes, err := vaccinechainhelper.GetAllCertificateAttributes(ctx, []string{"userRole"})
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println("userRole:", attributes["userRole"])
+
+	//validate loggedin identity
+	_, role, err := getProfileDetails(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Println("userRole:", attributes["userRole"])
 
 	// Check if the user has required permissions (Vaccine Chain Admin) to register the entity
-	if attributes["userRole"] != vaccinechainhelper.VACCINE_CHAIN_ADMIN {
+	if role != vaccinechainhelper.VACCINE_CHAIN_ADMIN {
 		return fmt.Errorf("only Vaccine Chain Admin are allowed to register %v", entityInput.DocType)
 	}
 
-	err = valdateAndPutData(ctx, entityInput, entityInput.Id, entityInput.DocType)
+	objectBytes, err := vaccinechainhelper.IsExist(ctx, entityInput.Id, entityInput.DocType)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Object Bytes 	: ", objectBytes)
+
+	// If the record already exists, return an error
+	if objectBytes != nil {
+		return fmt.Errorf("Record already exists for %v with Id: %v", entityInput.DocType, entityInput.Id)
+	}
+
+	err = insertData(ctx, entityInput, entityInput.Id, entityInput.DocType)
 	if err != nil {
 		return err
 	}
@@ -163,31 +191,48 @@ func (s *SmartContract) AddProduct(ctx contractapi.TransactionContextInterface, 
 	fmt.Println("Input String :", productInput)
 
 	// Fetch certificate attributes for the logged-in user
-	attributes, err := vaccinechainhelper.GetAllCertificateAttributes(ctx, []string{"userRole"})
+	// attributes, err := vaccinechainhelper.GetAllCertificateAttributes(ctx, []string{"userRole"})
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println("userRole :", attributes["userRole"])
+
+	//validate loggedin identity
+	loggedinEntity, role, err := getProfileDetails(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Println("userRole :", attributes["userRole"])
 
 	// Check if the user role is that of a manufacturer
-	if attributes["userRole"] != vaccinechainhelper.MANUFACTURER {
+	if role != vaccinechainhelper.MANUFACTURER {
 		return fmt.Errorf("Only Manufacturers are allowed to register Product details")
 	}
 
 	// Fetch the manufacturing ID of the logged-in user
-	manufacturerId, err := vaccinechainhelper.GetUserIdentityName(ctx)
-	fmt.Println("manufacturerId :", manufacturerId)
-	if err != nil {
-		return fmt.Errorf("Failed to get Manufacturer ID")
-	}
+	// manufacturerId, err := vaccinechainhelper.GetUserIdentityName(ctx)
+	// fmt.Println("manufacturerId :", manufacturerId)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to get Manufacturer ID")
+	// }
 
 	// Generate a unique ID for the product using manufacturer ID and product ID
-	productId := productInput.Id + manufacturerId
+	productId := productInput.Id + loggedinEntity.Id
 
 	// Assign the manufacturer as the owner of the product
-	productInput.Owner = manufacturerId
+	productInput.Owner = loggedinEntity.Id
 
-	err = valdateAndPutData(ctx, productInput, productId, productInput.DocType)
+	objectBytes, err := vaccinechainhelper.IsExist(ctx, productId, productInput.DocType)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Object Bytes 	: ", objectBytes)
+
+	// If the record already exists, return an error
+	if objectBytes != nil {
+		return fmt.Errorf("Record already exists for %v with Id: %v", productInput.DocType, productId)
+	}
+
+	err = insertData(ctx, productInput, productId, productInput.DocType)
 	if err != nil {
 		return err
 	}
@@ -207,67 +252,79 @@ func (s *SmartContract) AddBatch(ctx contractapi.TransactionContextInterface, ba
 	// Print input for debugging
 	fmt.Println("Input String :", batchInput)
 
-	// Fetch certificate attributes for the logged-in entity
-	attributes, err := vaccinechainhelper.GetAllCertificateAttributes(ctx, []string{"userRole"})
+	// // Fetch certificate attributes for the logged-in entity
+	// attributes, err := vaccinechainhelper.GetAllCertificateAttributes(ctx, []string{"userRole"})
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println("userRole :", attributes["userRole"])
+
+	//validate loggedin identity
+	manufacturerDetails, role, err := getProfileDetails(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Println("userRole :", attributes["userRole"])
 
 	// Check the role for permission
-	if attributes["userRole"] != vaccinechainhelper.MANUFACTURER {
+	if role != vaccinechainhelper.MANUFACTURER {
 		return fmt.Errorf("Only Manufacturer is allowed to add a batch")
 	}
 
-	// Fetch manufacturing ID
-	manufacturerId, err := vaccinechainhelper.GetUserIdentityName(ctx)
-	fmt.Println("manufacturerId :", manufacturerId)
-	if err != nil {
-		return fmt.Errorf("Failed to get Manufacturer ID")
-	}
+	// // Fetch manufacturing ID
+	// manufacturerId, err := vaccinechainhelper.GetUserIdentityName(ctx)
+	// fmt.Println("manufacturerId :", manufacturerId)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to get Manufacturer ID")
+	// }
 
 	// Fetch Manufacturing details
-	var manufacturerDetails Entity
-	objectBytes, err := vaccinechainhelper.IsExist(ctx, manufacturerId, vaccinechainhelper.MANUFACTURER)
-	if err != nil {
-		return err
-	}
-	if objectBytes == nil {
-		return fmt.Errorf("Record does not exist with ID: %v", manufacturerId)
-	}
-	err = json.Unmarshal(objectBytes.([]byte), &manufacturerDetails)
-	fmt.Println("manufacturerDetails :", manufacturerDetails)
+	// var manufacturerDetails Entity
+	// objectBytes, err := vaccinechainhelper.IsActive(ctx, manufacturerId, vaccinechainhelper.MANUFACTURER)
+	// if err != nil {
+	// 	return err
+	// }
+	// if objectBytes == nil {
+	// 	return fmt.Errorf("Record does not exist with ID: %v", manufacturerId)
+	// }
+	// err = json.Unmarshal(objectBytes, &manufacturerDetails)
+	// fmt.Println("manufacturerDetails :", manufacturerDetails)
 
 	// Fetch Product details
 	var productDetails Product
-	productId := batchInput.ProductId + manufacturerId
-	objectBytes, err = vaccinechainhelper.IsExist(ctx, productId, vaccinechainhelper.ITEM)
+	productId := batchInput.ProductId + manufacturerDetails.Id
+	objectBytes, err := vaccinechainhelper.IsActive(ctx, productId, vaccinechainhelper.ITEM)
 	if err != nil {
 		return err
 	}
 	if objectBytes == nil {
-		return fmt.Errorf("Record does not exist with ID: %v", manufacturerId)
+		return fmt.Errorf("Record does not exist with ID: %v", productId)
 	}
-	err = json.Unmarshal(objectBytes.([]byte), &productDetails)
+
+	err = json.Unmarshal(objectBytes, &productDetails)
 	fmt.Println("productDetails :", productDetails)
 
 	batchInput.Id = "B" + strconv.Itoa(manufacturerDetails.BatchCount)
 	fmt.Println("batchInput.Id :", batchInput.Id)
 
 	// Marshal batch details into JSON
-	batchJSON, err := json.Marshal(batchInput)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal batch records: %v", err.Error())
-	}
+	// batchJSON, err := json.Marshal(batchInput)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to marshal batch records: %v", err.Error())
+	// }
 
-	// Create composite key and insert batch details to couchDB
-	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdIdIndex, []string{manufacturerId, batchInput.Id})
+	// // Create composite key and insert batch details to couchDB
+	// compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdIdIndex, []string{manufacturerId, batchInput.Id})
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to create composite key for %v: %v", batchInput.Id, err.Error())
+	// }
+	// err = ctx.GetStub().PutState(compositeKey, batchJSON)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to insert batch details to couchDB: %v", err.Error())
+	// }
+
+	err = insertData(ctx, batchInput, manufacturerDetails.Id, batchInput.Id)
 	if err != nil {
-		return fmt.Errorf("Failed to create composite key for %v: %v", batchInput.Id, err.Error())
-	}
-	err = ctx.GetStub().PutState(compositeKey, batchJSON)
-	if err != nil {
-		return fmt.Errorf("Failed to insert batch details to couchDB: %v", err.Error())
+		return nil
 	}
 
 	// Insert Asset Records for each item in the batch
@@ -279,7 +336,7 @@ func (s *SmartContract) AddBatch(ctx contractapi.TransactionContextInterface, ba
 			// Generate asset IDs for each item in the batch
 			cartonId = batchInput.Id + "_" + "C" + strconv.Itoa(int(i))
 			packetId = "P" + strconv.Itoa(int(j))
-			assetId = manufacturerId + "_" + cartonId + "_" + packetId
+			assetId = manufacturerDetails.Id + "_" + cartonId + "_" + packetId
 			fmt.Println("assetId :", assetId)
 
 			// Create Asset object
@@ -287,10 +344,10 @@ func (s *SmartContract) AddBatch(ctx contractapi.TransactionContextInterface, ba
 				Id:                assetId,
 				BatchId:           batchInput.Id,
 				CartonId:          cartonId,
-				Owner:             manufacturerId,
+				Owner:             manufacturerDetails.Id,
 				Status:            vaccinechainhelper.Statuses.ReadyForDistribution,
 				ProductId:         productDetails.Id,
-				ManufacturerId:    manufacturerId,
+				ManufacturerId:    manufacturerDetails.Id,
 				ManufacturingDate: batchInput.ManufacturingDate,
 				ExpiryDate:        batchInput.ExpiryDate,
 				DocType:           vaccinechainhelper.ASSET,
@@ -318,19 +375,24 @@ func (s *SmartContract) AddBatch(ctx contractapi.TransactionContextInterface, ba
 	// Update manufacturer Details with new batch count
 	newBatchNo := manufacturerDetails.BatchCount + 1
 	manufacturerDetails.BatchCount = newBatchNo
-	manufacturerJSON, err := json.Marshal(manufacturerDetails)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal manufacturer records: %v", err.Error())
-	}
+	// manufacturerJSON, err := json.Marshal(manufacturerDetails)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to marshal manufacturer records: %v", err.Error())
+	// }
 
-	// Update manufacturer details in couchDB
-	compositeKey, err = ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{manufacturerId, vaccinechainhelper.MANUFACTURER})
+	// // Update manufacturer details in couchDB
+	// compositeKey, err = ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{manufacturerId, vaccinechainhelper.MANUFACTURER})
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to create composite key for %v: %v", batchInput.Id, err.Error())
+	// }
+	// err = ctx.GetStub().PutState(compositeKey, manufacturerJSON)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to update batch details in couchDB: %v", err.Error())
+	// }
+
+	err = insertData(ctx, manufacturerDetails, manufacturerDetails.Id, manufacturerDetails.DocType)
 	if err != nil {
-		return fmt.Errorf("Failed to create composite key for %v: %v", batchInput.Id, err.Error())
-	}
-	err = ctx.GetStub().PutState(compositeKey, manufacturerJSON)
-	if err != nil {
-		return fmt.Errorf("Failed to update batch details in couchDB: %v", err.Error())
+		return nil
 	}
 
 	return nil
@@ -344,6 +406,17 @@ func (s *SmartContract) ShipToDistributer(ctx contractapi.TransactionContextInte
 		PerUnitSellingPrice int16  `json:"perUnitSellingPrice"`
 	}{}
 
+	// event := struct {
+	// 	SupplierId          string `json:"supplierId"`
+	// 	CustomerId          string `json:"customerId"`
+	// 	TransactionDate     int16  `json:"transactionDate"`
+	// 	PerUnitSellingPrice int16  `json:"perUnitSellingPrice"`
+	// 	ManufacturerId      string `json:"manufacturerId"`
+	// 	ProductId           string `json:"productId"`
+	// 	TotalParcelUnits    int16  `json:"TotalParcelUnits"`
+	// 	TotalBill           int16  `json:"totalBill"`
+	// }{}
+
 	err := json.Unmarshal([]byte(distributionInputString), &distributionInput)
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal input string for distribution: %v", err.Error())
@@ -353,14 +426,20 @@ func (s *SmartContract) ShipToDistributer(ctx contractapi.TransactionContextInte
 	fmt.Println("Input String :", distributionInput)
 
 	// Fetch entity ID for logged-in user
-	entityId, err := vaccinechainhelper.GetUserIdentityName(ctx)
-	fmt.Println("entityId :", entityId)
+	// entityId, err := vaccinechainhelper.GetUserIdentityName(ctx)
+	// fmt.Println("entityId :", entityId)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to get Entity ID")
+	// }
+
+	//validate loggedin identity
+	manufacturerDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
-		return fmt.Errorf("Failed to get Entity ID")
+		return err
 	}
 
 	//Validate VendorId
-	vendorBytes, err := vaccinechainhelper.IsExist(ctx, distributionInput.CustomerId, vaccinechainhelper.DISTRIBUTER)
+	vendorBytes, err := vaccinechainhelper.IsActive(ctx, distributionInput.CustomerId, vaccinechainhelper.DISTRIBUTER)
 	if err != nil {
 		return err
 	}
@@ -368,7 +447,7 @@ func (s *SmartContract) ShipToDistributer(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("Record does not exist with ID: %v", distributionInput.CustomerId)
 	}
 
-	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","cartonId":"%s"}}`, entityId, distributionInput.CartonId)
+	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","cartonId":"%s"}}`, manufacturerDetails.Id, distributionInput.CartonId)
 	fmt.Println("queryString : ", queryString)
 
 	productId, manufacturerId, totalBundle, err := getQueryResultForAssetUpdateQueryString(
@@ -382,12 +461,15 @@ func (s *SmartContract) ShipToDistributer(ctx contractapi.TransactionContextInte
 
 	var productDetails Product
 	tempProductId := productId + manufacturerId
-	productBytes, err := vaccinechainhelper.IsExist(ctx, tempProductId, vaccinechainhelper.ITEM)
+	productBytes, err := vaccinechainhelper.IsActive(ctx, tempProductId, vaccinechainhelper.ITEM)
 	if err != nil {
 		return err
 	}
+	if productBytes == nil {
+		return fmt.Errorf("Record does not exist with ID: %v", productId)
+	}
 
-	err = json.Unmarshal(productBytes.([]byte), &productDetails)
+	err = json.Unmarshal(productBytes, &productDetails)
 	fmt.Println("productDetails :", productDetails)
 
 	//Creating Receipt
@@ -395,13 +477,44 @@ func (s *SmartContract) ShipToDistributer(ctx contractapi.TransactionContextInte
 	err = createReceipt(
 		ctx,
 		distributionInput.CartonId,
-		entityId,
+		manufacturerDetails.Id,
 		distributionInput.CustomerId,
 		productId,
 		distributionInput.TransactionDate,
 		billAmount)
 	if err != nil {
 		return err
+	}
+
+	//Emit an event
+	event := struct {
+		SupplierId          string
+		CustomerId          string
+		TransactionDate     int16
+		PerUnitSellingPrice int16
+		ManufacturerId      string
+		ProductId           string
+		TotalParcelUnits    int16
+		TotalBill           int16
+	}{
+		SupplierId:          manufacturerDetails.Id,
+		CustomerId:          distributionInput.CustomerId,
+		TransactionDate:     distributionInput.TransactionDate,
+		PerUnitSellingPrice: distributionInput.PerUnitSellingPrice,
+		ManufacturerId:      manufacturerId,
+		ProductId:           productId,
+		TotalParcelUnits:    totalBundle,
+		TotalBill:           billAmount,
+	}
+
+	eventDataJSON, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	eventErr := ctx.GetStub().SetEvent("Distributer Shippment Alert", eventDataJSON)
+	if eventErr != nil {
+		return fmt.Errorf("failed to setEvent Shippment Alert : %v", err.Error())
 	}
 
 	return nil
@@ -424,14 +537,18 @@ func (s *SmartContract) ShipToChemist(ctx contractapi.TransactionContextInterfac
 	fmt.Println("Input String :", distributionInput)
 
 	// Fetch entity ID for logged-in user
-	entityId, err := vaccinechainhelper.GetUserIdentityName(ctx)
-	fmt.Println("entityId :", entityId)
+	// entityId, err := vaccinechainhelper.GetUserIdentityName(ctx)
+	// fmt.Println("entityId :", entityId)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to get Entity ID")
+	// }
+	distributerDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
-		return fmt.Errorf("Failed to get Entity ID")
+		return err
 	}
 
 	//Validate VendorId
-	vendorBytes, err := vaccinechainhelper.IsExist(ctx, distributionInput.CustomerId, vaccinechainhelper.CHEMIST)
+	vendorBytes, err := vaccinechainhelper.IsActive(ctx, distributionInput.CustomerId, vaccinechainhelper.CHEMIST)
 	if err != nil {
 		return err
 	}
@@ -439,22 +556,25 @@ func (s *SmartContract) ShipToChemist(ctx contractapi.TransactionContextInterfac
 		return fmt.Errorf("Record does not exist with ID: %v", distributionInput.CustomerId)
 	}
 
-	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","id":"%s"}}`, entityId, distributionInput.PacketId)
+	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","id":"%s"}}`, distributerDetails.Id, distributionInput.PacketId)
 	fmt.Println("queryString : ", queryString)
 
-	productId, manufacturerId, _, err := getQueryResultForAssetUpdateQueryString(ctx, queryString, distributionInput.CustomerId, vaccinechainhelper.Statuses.ChemistInventoryReceived)
+	productId, manufacturerId, _, err := getQueryResultForAssetUpdateQueryString(ctx,
+		queryString,
+		distributionInput.CustomerId,
+		vaccinechainhelper.Statuses.ChemistInventoryReceived)
 	if err != nil {
 		return err
 	}
 
 	var productDetails Product
 	tempProductId := productId + manufacturerId
-	productBytes, err := vaccinechainhelper.IsExist(ctx, tempProductId, vaccinechainhelper.ITEM)
+	productBytes, err := vaccinechainhelper.IsActive(ctx, tempProductId, vaccinechainhelper.ITEM)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(productBytes.([]byte), &productDetails)
+	err = json.Unmarshal(productBytes, &productDetails)
 	fmt.Println("productDetails :", productDetails)
 
 	//Creating Receipt
@@ -462,13 +582,44 @@ func (s *SmartContract) ShipToChemist(ctx contractapi.TransactionContextInterfac
 	err = createReceipt(
 		ctx,
 		distributionInput.PacketId,
-		entityId,
+		distributerDetails.Id,
 		distributionInput.CustomerId,
 		productId,
 		distributionInput.TransactionDate,
 		billAmount)
 	if err != nil {
 		return err
+	}
+
+	//Emit an event
+	event := struct {
+		SupplierId          string
+		CustomerId          string
+		TransactionDate     int16
+		PerUnitSellingPrice int16
+		ManufacturerId      string
+		ProductId           string
+		TotalParcelUnits    int16
+		TotalBill           int16
+	}{
+		SupplierId:          distributerDetails.Id,
+		CustomerId:          distributionInput.CustomerId,
+		TransactionDate:     distributionInput.TransactionDate,
+		PerUnitSellingPrice: distributionInput.PerUnitSellingPrice,
+		ManufacturerId:      manufacturerId,
+		ProductId:           productId,
+		TotalParcelUnits:    1,
+		TotalBill:           billAmount,
+	}
+
+	eventDataJSON, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	eventErr := ctx.GetStub().SetEvent("Chemist Shippment Alert", eventDataJSON)
+	if eventErr != nil {
+		return fmt.Errorf("failed to setEvent Shippment Alert : %v", err.Error())
 	}
 
 	return nil
@@ -490,13 +641,17 @@ func (s *SmartContract) ShipToCustomer(ctx contractapi.TransactionContextInterfa
 	fmt.Println("Input String :", distributionInput)
 
 	// Fetch entity ID for logged-in user
-	entityId, err := vaccinechainhelper.GetUserIdentityName(ctx)
-	fmt.Println("entityId :", entityId)
+	// entityId, err := vaccinechainhelper.GetUserIdentityName(ctx)
+	// fmt.Println("entityId :", entityId)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to get Entity ID")
+	// }
+	chemistDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
-		return fmt.Errorf("Failed to get Entity ID")
+		return err
 	}
 
-	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","id":"%s"}}`, entityId, distributionInput.PacketId)
+	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","id":"%s"}}`, chemistDetails.Id, distributionInput.PacketId)
 	fmt.Println("queryString : ", queryString)
 
 	productId, manufacturerId, _, err := getQueryResultForAssetUpdateQueryString(ctx,
@@ -507,70 +662,22 @@ func (s *SmartContract) ShipToCustomer(ctx contractapi.TransactionContextInterfa
 		return err
 	}
 
-	// resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	// if err != nil {
-	// 	return err
-	// }
-	// defer resultsIterator.Close()
-
-	// // Check if there are no records in the iterator
-	// if !resultsIterator.HasNext() {
-	// 	fmt.Println("No records found")
-	// 	return fmt.Errorf("No Packet is ready for shipment for carton : %v", distributionInput.PacketId)
-	// }
-
-	// var productId, manufacturerId string
-	// // var totalCarton int16 = 0
-	// for resultsIterator.HasNext() {
-	// 	responseRange, err := resultsIterator.Next()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	fmt.Println("Key : ", responseRange.Key)
-
-	// 	var asset Asset
-	// 	assetBytes, err := ctx.GetStub().GetState(responseRange.Key)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to get asset %s: %v", responseRange.Key, err)
-	// 	}
-	// 	err = json.Unmarshal(assetBytes, &asset)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	productId = asset.ProductId
-	// 	manufacturerId = asset.ManufacturerId
-
-	// 	asset.Owner = distributionInput.CustomerId
-	// 	asset.Status = vaccinechainhelper.Statuses.SoldToCustomer
-	// 	assetBytes, err = json.Marshal(asset)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	err = ctx.GetStub().PutState(responseRange.Key, assetBytes)
-	// 	if err != nil {
-	// 		return fmt.Errorf("Shippment failed for asset %s: %v", asset.Id, err)
-	// 	}
-	// }
-
 	var productDetails Product
 	tempProductId := productId + manufacturerId
-	productBytes, err := vaccinechainhelper.IsExist(ctx, tempProductId, vaccinechainhelper.ITEM)
+	productBytes, err := vaccinechainhelper.IsActive(ctx, tempProductId, vaccinechainhelper.ITEM)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(productBytes.([]byte), &productDetails)
+	err = json.Unmarshal(productBytes, &productDetails)
 	fmt.Println("productDetails :", productDetails)
 
 	//Creating Receipt
-	// txID := ctx.GetStub().GetTxID()
 	billAmount := productDetails.Price * productDetails.PacketCapacity
 	err = createReceipt(
 		ctx,
 		distributionInput.PacketId,
-		entityId,
+		chemistDetails.Id,
 		distributionInput.CustomerId,
 		productId,
 		distributionInput.TransactionDate,
@@ -578,27 +685,37 @@ func (s *SmartContract) ShipToCustomer(ctx contractapi.TransactionContextInterfa
 	if err != nil {
 		return err
 	}
-	// bundleId string, supplierId string, customerId string, productId string, shipmentDate int16, billAmount int16) error {
-	// receipt := Receipt{
-	// 	Id:            txID,
-	// 	CartonId:      distributionInput.PacketId,
-	// 	DocType:       vaccinechainhelper.RECEIPT,
-	// 	SupplierId:    entityId,
-	// 	VendorId:      distributionInput.CustomerId,
-	// 	ProductId:     productId,
-	// 	ShippmentDate: distributionInput.TransactionDate,
-	// 	BillAmount:    billAmount,
-	// }
 
-	// receiptJSON, err := json.Marshal(receipt)
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to marshal receipt records: %v", err.Error())
-	// }
+	//Emit an event
+	event := struct {
+		SupplierId          string
+		CustomerId          string
+		TransactionDate     int16
+		PerUnitSellingPrice int16
+		ManufacturerId      string
+		ProductId           string
+		TotalParcelUnits    int16
+		TotalBill           int16
+	}{
+		SupplierId:          chemistDetails.Id,
+		CustomerId:          distributionInput.CustomerId,
+		TransactionDate:     distributionInput.TransactionDate,
+		PerUnitSellingPrice: productDetails.Price,
+		ManufacturerId:      manufacturerId,
+		ProductId:           productId,
+		TotalParcelUnits:    1,
+		TotalBill:           billAmount,
+	}
 
-	// err = ctx.GetStub().PutState(txID, receiptJSON)
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to update receipt details in couchDB: %v", err.Error())
-	// }
+	eventDataJSON, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	eventErr := ctx.GetStub().SetEvent("Customer Selling Alert", eventDataJSON)
+	if eventErr != nil {
+		return fmt.Errorf("failed to setEvent Shippment Alert : %v", err.Error())
+	}
 
 	return nil
 }
@@ -616,28 +733,37 @@ func createReceipt(ctx contractapi.TransactionContextInterface, bundleId string,
 		BillAmount:      billAmount,
 	}
 
-	receiptJSON, err := json.Marshal(receipt)
+	// receiptJSON, err := json.Marshal(receipt)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to marshal receipt records: %v", err.Error())
+	// }
+
+	// err = ctx.GetStub().PutState(txID, receiptJSON)
+	// if err != nil {
+	// 	return fmt.Errorf("Failed to update receipt details in couchDB: %v", err.Error())
+	// }
+	err := insertData(ctx, receipt, txID, "")
 	if err != nil {
-		return fmt.Errorf("Failed to marshal receipt records: %v", err.Error())
+		return nil
 	}
 
-	err = ctx.GetStub().PutState(txID, receiptJSON)
-	if err != nil {
-		return fmt.Errorf("Failed to update receipt details in couchDB: %v", err.Error())
-	}
 	return nil
 }
 
 func (s *SmartContract) GetProductsByManufacturer(ctx contractapi.TransactionContextInterface) (string, error) {
 
 	//fetching manufacturing Id
-	manufacturerId, err := vaccinechainhelper.GetUserIdentityName(ctx)
-	fmt.Println("manufacturerId :", manufacturerId)
+	// manufacturerId, err := vaccinechainhelper.GetUserIdentityName(ctx)
+	// fmt.Println("manufacturerId :", manufacturerId)
+	// if err != nil {
+	// 	return "", fmt.Errorf("Failed to get Manufacturer Id")
+	// }
+	manufacturerDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
-		return "", fmt.Errorf("Failed to get Manufacturer Id")
+		return "", err
 	}
 
-	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","docType":"ITEM"}}`, manufacturerId)
+	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","docType":"ITEM"}}`, manufacturerDetails.Id)
 	fmt.Println("queryString : ", queryString)
 
 	productsByManufacturer, err := getQueryResultForQueryString(ctx, queryString)
@@ -652,13 +778,17 @@ func (s *SmartContract) GetProductsByManufacturer(ctx contractapi.TransactionCon
 func (s *SmartContract) GetAssetByEntity(ctx contractapi.TransactionContextInterface) (string, error) {
 
 	//fetching entity Id
-	entityId, err := vaccinechainhelper.GetUserIdentityName(ctx)
-	fmt.Println("entityId :", entityId)
+	// entityId, err := vaccinechainhelper.GetUserIdentityName(ctx)
+	// fmt.Println("entityId :", entityId)
+	// if err != nil {
+	// 	return "", fmt.Errorf("Failed to get entity Id")
+	// }
+	entityDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
-		return "", fmt.Errorf("Failed to get entity Id")
+		return "", err
 	}
 
-	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","docType":"ASSET"}}`, entityId)
+	queryString := fmt.Sprintf(`{"selector":{"owner":"%s","docType":"ASSET"}}`, entityDetails.Id)
 	fmt.Println("queryString : ", queryString)
 
 	currentAssetsByEntity, err := getQueryResultForQueryString(ctx, queryString)
@@ -670,16 +800,18 @@ func (s *SmartContract) GetAssetByEntity(ctx contractapi.TransactionContextInter
 	return currentAssetsByEntity, nil
 }
 
-func (s *SmartContract) ViewProfileDetails(ctx contractapi.TransactionContextInterface) (Entity, error) {
+func (s *SmartContract) ViewProfileDetails(ctx contractapi.TransactionContextInterface) (string, error) {
 
-	entityDetails, err := getProfileDetails(ctx)
+	entityDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
-		return Entity{}, err
+		return "", err
 	}
 	fmt.Println("entityDetails :", entityDetails)
 
+	entityDetailsJson, _ := json.Marshal(entityDetails)
+
 	fmt.Println("********** End of ViewProfileDetails Function ******************")
-	return entityDetails, nil
+	return string(entityDetailsJson), nil
 }
 
 func (s *SmartContract) UpdateProfile(ctx contractapi.TransactionContextInterface, updateProfileInputString string) error {
@@ -691,7 +823,7 @@ func (s *SmartContract) UpdateProfile(ctx contractapi.TransactionContextInterfac
 	}
 	fmt.Println("Input String :", entityUpdateInput)
 
-	entityDetails, err := getProfileDetails(ctx)
+	entityDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
 		return err
 	}
@@ -717,18 +849,23 @@ func (s *SmartContract) UpdateProfile(ctx contractapi.TransactionContextInterfac
 	}
 
 	//Updating Entity record
-	entityJSON, err := json.Marshal(entityDetails)
-	if err != nil {
-		return fmt.Errorf("failed to marshal of entity records : %v", err.Error())
-	}
+	// entityJSON, err := json.Marshal(entityDetails)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to marshal of entity records : %v", err.Error())
+	// }
 
-	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{entityDetails.Id, entityDetails.DocType})
+	// compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{entityDetails.Id, entityDetails.DocType})
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create composite key for %v and err is :%v", entityDetails.Id, err.Error())
+	// }
+	// err = ctx.GetStub().PutState(compositeKey, entityJSON)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to insert user details to couchDB : %v", err.Error())
+	// }
+
+	err = insertData(ctx, entityDetails, entityDetails.Id, entityDetails.DocType)
 	if err != nil {
-		return fmt.Errorf("failed to create composite key for %v and err is :%v", entityDetails.Id, err.Error())
-	}
-	err = ctx.GetStub().PutState(compositeKey, entityJSON)
-	if err != nil {
-		return fmt.Errorf("failed to insert user details to couchDB : %v", err.Error())
+		return nil
 	}
 
 	fmt.Println("********** End of Update Details Function ******************")
@@ -738,23 +875,19 @@ func (s *SmartContract) UpdateProfile(ctx contractapi.TransactionContextInterfac
 
 func (s *SmartContract) TrackPacket(ctx contractapi.TransactionContextInterface, key string) ([]History, error) {
 
-	objectBytes, err := ctx.GetStub().GetState(key)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read data from world state %s", err.Error())
-	}
-	if objectBytes == nil {
-		return nil, fmt.Errorf("Packet Does not exist for ID:  %s", key)
-	}
+	// objectBytes, err := ctx.GetStub().GetState(key)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Failed to read data from world state %s", err.Error())
+	// }
+	// if objectBytes == nil {
+	// 	return nil, fmt.Errorf("Packet Does not exist for ID:  %s", key)
+	// }
 
-	var asset Asset
-	err = json.Unmarshal(objectBytes, &asset)
-	if err != nil {
-		return nil, err
-	}
-
-	if asset.DocType != vaccinechainhelper.ASSET {
-		return nil, fmt.Errorf("This trackng id does not belong to asset is :%s", key)
-	}
+	// var asset Asset
+	// err = json.Unmarshal(objectBytes, &asset)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	resultsIterator, err := ctx.GetStub().GetHistoryForKey(key)
 	if err != nil {
@@ -765,6 +898,7 @@ func (s *SmartContract) TrackPacket(ctx contractapi.TransactionContextInterface,
 
 	var histories []History
 	var history History
+	var checkStatus = false
 	for resultsIterator.HasNext() {
 		fmt.Println("Inside Result Iterator")
 		response, err := resultsIterator.Next()
@@ -777,6 +911,11 @@ func (s *SmartContract) TrackPacket(ctx contractapi.TransactionContextInterface,
 				return nil, fmt.Errorf("Error unmarshaling JSON: %v", err)
 			}
 		}
+
+		if record.DocType != vaccinechainhelper.ASSET && !checkStatus {
+			return nil, fmt.Errorf("This trackng id does not belong to asset is :%s", key)
+		}
+		checkStatus = true
 
 		timestamp, err := ptypes.Timestamp(response.Timestamp)
 		if err != nil {
@@ -797,7 +936,7 @@ func (s *SmartContract) TrackPacket(ctx contractapi.TransactionContextInterface,
 }
 
 func (s *SmartContract) ViewReceipt(ctx contractapi.TransactionContextInterface, receiptId string) (string, error) {
-	entityDetails, err := getProfileDetails(ctx)
+	entityDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -823,40 +962,165 @@ func (s *SmartContract) ViewReceipt(ctx contractapi.TransactionContextInterface,
 	return string(receiptBytes), nil
 }
 
-func getProfileDetails(ctx contractapi.TransactionContextInterface) (Entity, error) {
+func (s *SmartContract) ChangeAdminStatus(ctx contractapi.TransactionContextInterface, changeStatusInputString string) error {
+	changeStatusInput := struct {
+		Id      string `json:"id"`
+		DocType string `json:"docType"`
+		Status  bool   `json:"status"`
+	}{}
+
+	err := json.Unmarshal([]byte(changeStatusInputString), &changeStatusInput)
+	if err != nil {
+		return fmt.Errorf("Failed to unmarshal input string for change status: %v", err.Error())
+	}
+
+	// Print input for debugging
+	fmt.Println("Input String :", changeStatusInput)
+
+	superAdminIdentity, err := vaccinechainhelper.GetUserIdentityName(ctx)
+	fmt.Println("superAdminIdentity :", superAdminIdentity)
+	if !(superAdminIdentity == vaccinechainhelper.SUPER_ADMIN && changeStatusInput.DocType == vaccinechainhelper.VACCINE_CHAIN_ADMIN) {
+		return fmt.Errorf("permission denied: only super admin can call this function")
+	}
+
+	//validating Id
+	objectBytes, err := vaccinechainhelper.IsExist(ctx, changeStatusInput.Id, changeStatusInput.DocType)
+	if err != nil {
+		return err
+	}
+	if objectBytes == nil {
+		return fmt.Errorf("Record for %v user does not exist", changeStatusInput.Id)
+	}
+
+	var entity Entity
+	err = json.Unmarshal(objectBytes, &entity)
+	fmt.Println("entity :", entity)
+
+	status, err := vaccinechainhelper.SuspendStatus(ctx, objectBytes)
+	if err != nil {
+		return err
+	}
+
+	if status == changeStatusInput.Status {
+		return fmt.Errorf("Status is already %v", status)
+	}
+
+	//validate loggedin identity
+	// _, role, err := getProfileDetails(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if changeStatusInput.DocType==vaccinechainhelper.VACCINE_CHAIN_ADMIN && role != vaccinechainhelper.SUPER_ADMIN{
+	// 	return fmt.Errorf("permission denied: you are not authorized to do changes")
+	// }
+
+	// if changeStatusInput.DocType==vaccinechainhelper.VACCINE_CHAIN_ADMIN
+
+	entity.Suspended = changeStatusInput.Status
+	err = insertData(ctx, entity, changeStatusInput.Id, changeStatusInput.DocType)
+	if err != nil {
+		return nil
+	}
+
+	return nil
+
+}
+
+func (s *SmartContract) ChangeEntityStatus(ctx contractapi.TransactionContextInterface, changeStatusInputString string) error {
+	changeStatusInput := struct {
+		Id      string `json:"id"`
+		DocType string `json:"docType"`
+		Status  bool   `json:"status"`
+	}{}
+
+	err := json.Unmarshal([]byte(changeStatusInputString), &changeStatusInput)
+	if err != nil {
+		return fmt.Errorf("Failed to unmarshal input string for change status: %v", err.Error())
+	}
+
+	// Print input for debugging
+	fmt.Println("Input String :", changeStatusInput)
+
+	//validate loggedin identity
+	_, role, err := getProfileDetails(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !(role == vaccinechainhelper.VACCINE_CHAIN_ADMIN &&
+		((changeStatusInput.DocType == vaccinechainhelper.MANUFACTURER) ||
+			(changeStatusInput.DocType == vaccinechainhelper.DISTRIBUTER) ||
+			(changeStatusInput.DocType == vaccinechainhelper.CHEMIST))) {
+		return fmt.Errorf("permission denied: only admin can call this function")
+	}
+
+	//validating Id
+	objectBytes, err := vaccinechainhelper.IsExist(ctx, changeStatusInput.Id, changeStatusInput.DocType)
+	if err != nil {
+		return err
+	}
+	if objectBytes == nil {
+		return fmt.Errorf("Record for %v user does not exist", changeStatusInput.Id)
+	}
+
+	var entity Entity
+	err = json.Unmarshal(objectBytes, &entity)
+	fmt.Println("entity :", entity)
+
+	status, err := vaccinechainhelper.SuspendStatus(ctx, objectBytes)
+	if err != nil {
+		return err
+	}
+
+	if status == changeStatusInput.Status {
+		return fmt.Errorf("Status is already %v", status)
+	}
+
+	entity.Suspended = changeStatusInput.Status
+	err = insertData(ctx, entity, changeStatusInput.Id, changeStatusInput.DocType)
+	if err != nil {
+		return nil
+	}
+
+	return nil
+
+}
+
+func getProfileDetails(ctx contractapi.TransactionContextInterface) (Entity, string, error) {
 
 	//getting logged-in entity username
 	entityIdentity, err := vaccinechainhelper.GetUserIdentityName(ctx)
 	fmt.Println("entityIdentity :", entityIdentity)
 	if err != nil {
-		return Entity{}, err
+		return Entity{}, "", err
 	}
 
 	//getting logged-in entity attributes
 	attributes, err := vaccinechainhelper.GetAllCertificateAttributes(ctx, []string{"userRole"})
 	if err != nil {
-		return Entity{}, err
+		return Entity{}, "", err
 	}
 	fmt.Println("userRole for entityIdentity :", attributes["userRole"])
 
 	//validating User Id
-	entityDetailer, err := vaccinechainhelper.IsExist(ctx, entityIdentity, attributes["userRole"])
+	entityDetailer, err := vaccinechainhelper.IsActive(ctx, entityIdentity, attributes["userRole"])
 	if err != nil {
-		return Entity{}, err
+		return Entity{}, "", err
 	}
 	if entityDetailer == nil {
-		return Entity{}, fmt.Errorf("Record for %v user does not exist", entityIdentity)
+		return Entity{}, "", fmt.Errorf("Record for %v user does not exist", entityIdentity)
 	}
 
 	var entityDetails Entity
-	err = json.Unmarshal(entityDetailer.([]byte), &entityDetails)
+	err = json.Unmarshal(entityDetailer, &entityDetails)
 	if err != nil {
-		return Entity{}, fmt.Errorf("Failed to convert Detailer to Entity type")
+		return Entity{}, "", fmt.Errorf("Failed to convert Detailer to Entity type")
 	}
 	fmt.Println("entityDetails:", entityDetails)
 
 	fmt.Println("********** End of getProfileDetails Function ******************")
-	return entityDetails, nil
+	return entityDetails, attributes["userRole"], nil
 }
 
 func getQueryResultForQueryString(ctx contractapi.TransactionContextInterface, queryString string) (string, error) {
@@ -949,18 +1213,18 @@ func getQueryResultForAssetUpdateQueryString(ctx contractapi.TransactionContextI
 	return productId, manufacturerId, totalBundle, nil
 }
 
-func valdateAndPutData(ctx contractapi.TransactionContextInterface, entity interface{}, id string, docType string) error {
-	// Check if the admin record already exists using its ID and document type
-	objectBytes, err := vaccinechainhelper.IsExist(ctx, id, docType)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Object Bytes 	: ", objectBytes)
+func insertData(ctx contractapi.TransactionContextInterface, entity interface{}, id string, docType string) error {
+	// // Check if the admin record already exists using its ID and document type
+	// objectBytes, err := vaccinechainhelper.IsActive(ctx, id, docType)
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println("Object Bytes 	: ", objectBytes)
 
-	// If the record already exists, return an error
-	if objectBytes != nil {
-		return fmt.Errorf("Record already exists for %v with Id: %v", docType, id)
-	}
+	// // If the record already exists, return an error
+	// if objectBytes != nil {
+	// 	return fmt.Errorf("Record already exists for %v with Id: %v", docType, id)
+	// }
 
 	// Marshal the admin record into JSON format
 	entityJSON, err := json.Marshal(entity)
@@ -969,9 +1233,14 @@ func valdateAndPutData(ctx contractapi.TransactionContextInterface, entity inter
 	}
 
 	// Create a composite key using the admin's ID and document type
-	compositeKey, err := ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{id, docType})
-	if err != nil {
-		return fmt.Errorf("Failed to create composite key for %v: %v", id, err.Error())
+	var compositeKey string
+	if docType != "" {
+		compositeKey, err = ctx.GetStub().CreateCompositeKey(vaccinechainhelper.IdDoctypeIndex, []string{id, docType})
+		if err != nil {
+			return fmt.Errorf("Failed to create composite key for %v: %v", id, err.Error())
+		}
+	} else {
+		compositeKey = id
 	}
 
 	// Put the admin record into the ledger using the composite key

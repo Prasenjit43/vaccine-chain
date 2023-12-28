@@ -8,10 +8,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/Prasenjit43/vaccinechainhelper"
+	"github.com/go-playground/validator/v10"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
@@ -23,39 +25,39 @@ type SmartContract struct {
 }
 
 type Entity struct {
-	Id            string `json:"id"`
-	Name          string `json:"name"`
-	LicenseNo     string `json:"licenseNo"`
-	Address       string `json:"address,omitempty"`       //updatable
-	OwnerName     string `json:"ownerName,omitempty"`     //updatable
-	OwnerIdentity string `json:"ownerIdentity,omitempty"` //updatable
-	OwnerAddress  string `json:"ownerAddress,omitempty"`  //updatable
-	ContactNo     string `json:"contactNo,omitempty"`     //updatable
-	EmailId       string `json:"emailId,omitempty"`       //updatable
+	Id            string `json:"id" validate:"required"`
+	Name          string `json:"name,omitempty" validate:"validName"`
+	LicenseNo     string `json:"licenseNo,omitempty" validate:"required"`
+	Address       string `json:"address,omitempty"`                          //updatable
+	OwnerName     string `json:"ownerName,omitempty"`                        //updatable
+	OwnerIdentity string `json:"ownerIdentity,omitempty"`                    //updatable
+	OwnerAddress  string `json:"ownerAddress,omitempty"`                     //updatable
+	ContactNo     string `json:"contactNo,omitempty" validate:"validNumber"` //updatable
+	EmailId       string `json:"emailId,omitempty" validate:"email"`         //updatable
 	Suspended     bool   `json:"suspended"`
 	BatchCount    int    `json:"batchCount,omitempty"`
-	DocType       string `json:"docType"`
+	DocType       string `json:"docType" validate:"required,oneof=VACCINE_CHAIN_ADMIN MANUFACTURER DISTRIBUTER CHEMIST"`
 }
 
 type Product struct {
-	Id             string `json:"id"`
-	Name           string `json:"name"`
+	Id             string `json:"id" validate:"required"`
+	Name           string `json:"name" validate:"validName"`
 	Desc           string `json:"desc"`
 	Type           string `json:"type"`
 	Price          int16  `json:"price"`
 	CartonCapacity int16  `json:"cartonCapacity"`
 	PacketCapacity int16  `json:"packetCapacity"`
-	DocType        string `json:"docType"`
+	DocType        string `json:"docType" validate:"required,eq=ITEM"`
 	Suspended      bool   `json:"suspended"`
 	Owner          string `json:"owner"`
 }
 
 type Batch struct {
-	Id                string `json:"id"`
+	Id                string `json:"id,omitempty"`
 	Owner             string `json:"owner"`
 	ProductId         string `json:"productId"`
-	ManufacturingDate int64  `json:"manufacturingDate"`
-	ExpiryDate        int64  `json:"expiryDate"`
+	ManufacturingDate int64  `json:"manufacturingDate" validate:"required"`
+	ExpiryDate        int64  `json:"expiryDate" validate:"required,expiryGreaterThanManufacturing"`
 	CartonQnty        int16  `json:"cartonQnty"`
 }
 
@@ -92,18 +94,35 @@ type History struct {
 	IsDelete  bool      `json:"isDelete"`
 }
 
-// VaccineChainAdmin function adds a new admin to the vaccine chain system.
-// It takes in a JSON string containing admin details and performs several validations before inserting the admin record into the ledger.
+/* 		VaccineChainAdmin function adds a new admin to the vaccine chain system.
+***	 	It takes in a JSON string containing admin details and performs several validations
+***		before inserting the admin record into the ledger.*/
 func (s *SmartContract) VaccineChainAdmin(ctx contractapi.TransactionContextInterface, adminInputString string) error {
-	// Define a struct to hold the admin details
 	var vaccineChainAdmin Entity
 
-	// Unmarshal the input JSON string into the VaccineChainAdmin struct
+	/* Unmarshal the input JSON string into the VaccineChainAdmin struct */
 	err := json.Unmarshal([]byte(adminInputString), &vaccineChainAdmin)
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal input string for Admin: %v", err.Error())
 	}
 	fmt.Println("Input String :", vaccineChainAdmin)
+
+	// validate := validator.New()
+	// err = validate.Struct(vaccineChainAdmin)
+	// if err != nil {
+	// 	validationErrors := err.(validator.ValidationErrors)
+	// 	var errMsg string
+	// 	for _, e := range validationErrors {
+	// 		fmt.Printf("Validation Error: Field %s failed validation\n", e.Field())
+	// 		errMsg += fmt.Sprintf("Validation Error: Field %s failed validation", e.Field())
+	// 	}
+	// 	return fmt.Errorf("validation error(s): %s", errMsg)
+	// }
+
+	err = validateInputParams(vaccineChainAdmin)
+	if err != nil {
+		return err
+	}
 
 	// Validate the identity of the caller as the super admin
 	superAdminIdentity, err := vaccinechainhelper.GetUserIdentityName(ctx)
@@ -141,6 +160,11 @@ func (s *SmartContract) AddEntity(ctx contractapi.TransactionContextInterface, e
 		return fmt.Errorf("failed to unmarshal input string for Entity: %v", err.Error())
 	}
 	fmt.Println("Input String:", entityInput)
+
+	err = validateInputParams(entityInput)
+	if err != nil {
+		return err
+	}
 
 	//validate loggedin identity
 	_, role, err := getProfileDetails(ctx)
@@ -182,6 +206,11 @@ func (s *SmartContract) AddProduct(ctx contractapi.TransactionContextInterface, 
 		return fmt.Errorf("Failed to unmarshal input string for Product: %v", err.Error())
 	}
 	fmt.Println("Input String :", productInput)
+
+	err = validateInputParams(productInput)
+	if err != nil {
+		return err
+	}
 
 	//validate loggedin identity
 	loggedinEntity, role, err := getProfileDetails(ctx)
@@ -230,6 +259,11 @@ func (s *SmartContract) AddBatch(ctx contractapi.TransactionContextInterface, ba
 
 	// Print input for debugging
 	fmt.Println("Input String :", batchInput)
+
+	err = validateInputParams(batchInput)
+	if err != nil {
+		return err
+	}
 
 	//validate loggedin identity
 	manufacturerDetails, role, err := getProfileDetails(ctx)
@@ -695,6 +729,10 @@ func (s *SmartContract) UpdateProfile(ctx contractapi.TransactionContextInterfac
 		return fmt.Errorf("Failed to unmarshal of input string for Entity: %v", err.Error())
 	}
 	fmt.Println("Input String :", entityUpdateInput)
+	err = validateInputParams(entityUpdateInput)
+	if err != nil {
+		return err
+	}
 
 	entityDetails, _, err := getProfileDetails(ctx)
 	if err != nil {
@@ -810,7 +848,7 @@ func (s *SmartContract) ViewReceipt(ctx contractapi.TransactionContextInterface,
 func (s *SmartContract) ChangeAdminStatus(ctx contractapi.TransactionContextInterface, changeStatusInputString string) error {
 	changeStatusInput := struct {
 		Id      string `json:"id"`
-		DocType string `json:"docType"`
+		DocType string `json:"docType" validate:"required,eq=VACCINE_CHAIN_ADMIN"`
 		Status  bool   `json:"status"`
 	}{}
 
@@ -821,6 +859,11 @@ func (s *SmartContract) ChangeAdminStatus(ctx contractapi.TransactionContextInte
 
 	// Print input for debugging
 	fmt.Println("Input String :", changeStatusInput)
+
+	err = validateInputParams(changeStatusInput)
+	if err != nil {
+		return err
+	}
 
 	superAdminIdentity, err := vaccinechainhelper.GetUserIdentityName(ctx)
 	fmt.Println("superAdminIdentity :", superAdminIdentity)
@@ -863,7 +906,7 @@ func (s *SmartContract) ChangeAdminStatus(ctx contractapi.TransactionContextInte
 func (s *SmartContract) ChangeEntityStatus(ctx contractapi.TransactionContextInterface, changeStatusInputString string) error {
 	changeStatusInput := struct {
 		Id      string `json:"id"`
-		DocType string `json:"docType"`
+		DocType string `json:"docType" validate:"required,oneof=MANUFACTURER DISTRIBUTER CHEMIST"`
 		Status  bool   `json:"status"`
 	}{}
 
@@ -874,6 +917,11 @@ func (s *SmartContract) ChangeEntityStatus(ctx contractapi.TransactionContextInt
 
 	// Print input for debugging
 	fmt.Println("Input String :", changeStatusInput)
+
+	err = validateInputParams(changeStatusInput)
+	if err != nil {
+		return err
+	}
 
 	//validate loggedin identity
 	_, role, err := getProfileDetails(ctx)
@@ -1072,6 +1120,50 @@ func insertData(ctx contractapi.TransactionContextInterface, entity interface{},
 	}
 
 	return nil
+}
+
+func validateInputParams(object interface{}) error {
+	validate := validator.New()
+	validate.RegisterValidation("validName", validateName)
+	validate.RegisterValidation("validNumber", validateNumber)
+	validate.RegisterValidation("expiryGreaterThanManufacturing", expiryGreaterThanManufacturing)
+	err := validate.Struct(object)
+	if err != nil {
+		validationErrors := err.(validator.ValidationErrors)
+		var errMsg string
+		for _, e := range validationErrors {
+			fmt.Printf("Validation Error: Field %s failed validation$$$$", e.Field())
+			errMsg += fmt.Sprintf("Validation Error: Field %s failed validation$$$$", e.Field())
+		}
+		fmt.Println("errMsg :", errMsg)
+		return fmt.Errorf("validation error(s): %s", errMsg)
+	}
+	return nil
+}
+
+func validateName(fl validator.FieldLevel) bool {
+	name := fl.Field().String()
+	// Define a regular expression to allow only characters (no special characters or numbers)
+	regex := regexp.MustCompile("^[A-Za-z ]+$")
+
+	return regex.MatchString(name)
+}
+
+func validateNumber(fl validator.FieldLevel) bool {
+	number := fl.Field().String()
+	// Define a regular expression to allow only numbers
+	regex := regexp.MustCompile("^[0-9]+$")
+
+	return regex.MatchString(number)
+}
+
+func expiryGreaterThanManufacturing(fl validator.FieldLevel) bool {
+	expiry := fl.Field().Int()
+	manufacturing := fl.Parent().FieldByName("ManufacturingDate").Int()
+	fmt.Println("expiry :", expiry)
+	fmt.Println("manufacturing :", manufacturing)
+
+	return expiry > manufacturing
 }
 
 func main() {
